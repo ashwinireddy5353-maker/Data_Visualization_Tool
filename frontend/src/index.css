@@ -1,0 +1,79 @@
+:root {
+  --ink: #1f2937;
+  --muted: #475569;
+  --paper: #fff;
+  --page: #fff8ee;
+  --brand: #16a34a;
+  --page-bg: #f6f8fb;
+  --surface-1: #ffffff;
+  --surface-2: #f8fafc;
+  --border-subtle: #dce3ee;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --accent: #1d4ed8;
+  --accent-soft: #dbeafe;
+  --font-body: 'Nunito', 'Trebuchet MS', 'Segoe UI', sans-serif;
+  --font-heading: 'Poppins', 'Avenir Next', 'Segoe UI', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --page-bg: #0b1220;
+    --surface-1: #111a2b;
+    --surface-2: #182338;
+    --border-subtle: #2b3a56;
+    --text-primary: #e5e7eb;
+    --text-secondary: #c3d0e6;
+    --text-muted: #9db0cd;
+    --accent: #60a5fa;
+    --accent-soft: rgba(96, 165, 250, 0.2);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  background:
+    radial-gradient(circle at 15% 10%, rgba(251, 191, 36, 0.2), transparent 35%),
+    radial-gradient(circle at 85% 15%, rgba(34, 197, 94, 0.15), transparent 34%),
+    linear-gradient(180deg, #fffef9 0%, var(--page) 100%);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  color: #0f172a;
+}
+
+h1 {
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  line-height: 1.1;
+}
+
+p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
