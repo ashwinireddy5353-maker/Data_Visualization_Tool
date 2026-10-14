@@ -14,8 +14,10 @@ services:
       - key: CORS_ALLOW_CREDENTIALS
         value: "false"
 
-  - type: static
+  - type: web
     name: datascience-lab-web
+    runtime: static
+    plan: free
     rootDir: frontend
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
