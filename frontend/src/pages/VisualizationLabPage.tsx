@@ -1,27 +1,15 @@
 import { useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toPng } from 'html-to-image'
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Line,
-  LineChart,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  Tooltip,
-  Treemap,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { ResponsiveContainer } from 'recharts'
 import ModulePage from '../components/ModulePage'
+import {
+  getChartRenderer,
+  isRendererType,
+  type ChartType,
+  type VisualizationChartRendererProps,
+  VISUALIZATION_CHART_RENDERERS,
+} from '../components/chartRenderers'
 import { fetchRecentDatasets } from '../services/datasets'
 import { fetchAllRows, type DataRow } from '../services/explorer'
 import { logProgressEvent } from '../services/platform'
@@ -36,21 +24,6 @@ type Objective =
   | 'outliers'
   | 'correlation'
   | 'composition'
-
-type ChartType =
-  | 'bar'
-  | 'horizontal_bar'
-  | 'stacked_bar'
-  | 'line'
-  | 'multi_line'
-  | 'area'
-  | 'scatter'
-  | 'bubble'
-  | 'histogram'
-  | 'pie'
-  | 'donut'
-  | 'treemap'
-  | 'correlation_heatmap'
 
 const CHART_BY_OBJECTIVE: Record<Objective, { chart: ChartType; reason: string; whatToLook: string; commonMistake: string }> = {
   compare_categories: {
@@ -252,6 +225,18 @@ export default function VisualizationLabPage() {
   }, [numericColumns, rows])
 
   const colors = ['#2563eb', '#16a34a', '#d97706', '#dc2626', '#9333ea', '#0891b2', '#4f46e5']
+  const ChartRenderer = getChartRenderer(VISUALIZATION_CHART_RENDERERS, chartType)
+  const rendererProps: VisualizationChartRendererProps = {
+    scatterData,
+    groupedData,
+    multiLineData,
+    histData,
+    pieData,
+    correlationMatrix,
+    colors,
+    xAxis,
+    yAxis,
+  }
 
   const applyRecommendation = () => {
     setChartType(recommendations.chart)
@@ -352,7 +337,12 @@ export default function VisualizationLabPage() {
           </label>
           <label>
             Chart type
-            <select value={chartType} onChange={(event) => setChartType(event.target.value as ChartType)}>
+            <select
+              value={chartType}
+              onChange={(event) => {
+                if (isRendererType(VISUALIZATION_CHART_RENDERERS, event.target.value)) setChartType(event.target.value)
+              }}
+            >
               <option value="bar">Bar</option>
               <option value="horizontal_bar">Horizontal Bar</option>
               <option value="stacked_bar">Stacked Bar</option>
@@ -407,146 +397,22 @@ export default function VisualizationLabPage() {
         {!rowsQuery.isLoading && datasetId && rows.length === 0 && <p>No data available for this configuration.</p>}
         {!datasetId && <p>Select a dataset to begin visualization.</p>}
 
-        {rows.length > 0 && chartType !== 'correlation_heatmap' && (
-          <div className="chart-area" ref={chartRef}>
-            <ResponsiveContainer width="100%" height={360}>
-              {chartType === 'bar' ? (
-                <BarChart data={groupedData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="value" fill="#2563eb" />
-                </BarChart>
-              ) : chartType === 'horizontal_bar' ? (
-                <BarChart data={groupedData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis type="number" />
-                  <YAxis type="category" dataKey="name" width={120} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#16a34a" />
-                </BarChart>
-              ) : chartType === 'stacked_bar' ? (
-                <BarChart data={multiLineData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  {Object.keys(multiLineData[0] ?? {})
-                    .filter((k) => k !== 'name')
-                    .map((key, idx) => (
-                      <Bar key={key} dataKey={key} stackId="a" fill={colors[idx % colors.length]} />
-                    ))}
-                </BarChart>
-              ) : chartType === 'line' ? (
-                <LineChart data={scatterData.map((p) => ({ x: p.x, y: p.y }))}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="x" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="y" stroke="#d97706" dot={false} />
-                </LineChart>
-              ) : chartType === 'multi_line' ? (
-                <LineChart data={multiLineData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  {Object.keys(multiLineData[0] ?? {})
-                    .filter((k) => k !== 'name')
-                    .map((key, idx) => (
-                      <Line key={key} type="monotone" dataKey={key} stroke={colors[idx % colors.length]} dot={false} />
-                    ))}
-                </LineChart>
-              ) : chartType === 'area' ? (
-                <AreaChart data={scatterData.map((p) => ({ x: p.x, y: p.y }))}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="x" />
-                  <YAxis />
-                  <Tooltip />
-                  <Area type="monotone" dataKey="y" stroke="#9333ea" fill="#d8b4fe" />
-                </AreaChart>
-              ) : chartType === 'scatter' ? (
-                <ScatterChart>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="x" name={xAxis} />
-                  <YAxis dataKey="y" name={yAxis} />
-                  <Tooltip />
-                  <Scatter data={scatterData} fill="#0891b2" />
-                </ScatterChart>
-              ) : chartType === 'bubble' ? (
-                <ScatterChart>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="x" name={xAxis} />
-                  <YAxis dataKey="y" name={yAxis} />
-                  <Tooltip />
-                  <Scatter data={scatterData.map((p, idx) => ({ ...p, z: (idx % 12) + 4 }))} fill="#ef4444" />
-                </ScatterChart>
-              ) : chartType === 'histogram' ? (
-                <BarChart data={histData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#0f766e" />
-                </BarChart>
-              ) : chartType === 'pie' ? (
-                <PieChart>
-                  <Tooltip />
-                  <Legend />
-                  <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={120}>
-                    {pieData.map((_, idx) => (
-                      <Cell key={idx} fill={colors[idx % colors.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              ) : chartType === 'donut' ? (
-                <PieChart>
-                  <Tooltip />
-                  <Legend />
-                  <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={58} outerRadius={120}>
-                    {pieData.map((_, idx) => (
-                      <Cell key={idx} fill={colors[idx % colors.length]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              ) : (
-                <Treemap
-                  data={pieData.map((item) => ({ ...item, size: item.value }))}
-                  dataKey="size"
-                  stroke="#fff"
-                  fill="#60a5fa"
-                />
-              )}
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {rows.length > 0 && chartType === 'correlation_heatmap' && (
-          <div className="table-wrap" ref={chartRef}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Column A</th>
-                  <th>Column B</th>
-                  <th>Correlation</th>
-                </tr>
-              </thead>
-              <tbody>
-                {correlationMatrix.map((cell) => (
-                  <tr key={`${cell.x}-${cell.y}`}>
-                    <td>{cell.x}</td>
-                    <td>{cell.y}</td>
-                    <td>{cell.value ?? 'NA'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        {rows.length > 0 &&
+          (ChartRenderer ? (
+            chartType === 'correlation_heatmap' ? (
+              <div className="table-wrap" ref={chartRef}>
+                {ChartRenderer(rendererProps)}
+              </div>
+            ) : (
+              <div className="chart-area" ref={chartRef}>
+                <ResponsiveContainer width="100%" height={360}>
+                  {ChartRenderer(rendererProps)}
+                </ResponsiveContainer>
+              </div>
+            )
+          ) : (
+            <p role="status">Unsupported chart type: {String(chartType)}</p>
+          ))}
 
         <div className="button-row">
           <button type="button" className="ghost" onClick={exportChartPng} disabled={rows.length === 0}>

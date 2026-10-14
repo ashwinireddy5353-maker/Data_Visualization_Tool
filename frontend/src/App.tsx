@@ -1,19 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import axios from 'axios'
+import { ResponsiveContainer } from 'recharts'
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Scatter,
-  ScatterChart,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+  APP_CHART_RENDERERS,
+  getChartRenderer,
+  isRendererType,
+  type AppChartRendererProps,
+  type AppChartType,
+} from './components/chartRenderers'
 import './App.css'
 
 type Project = {
@@ -234,7 +229,7 @@ function getOutlierCount(values: number[]): number {
 }
 
 function getInterpretationPrompt(
-  chartType: 'scatter' | 'bar' | 'line' | 'histogram',
+  chartType: AppChartType,
   xAxis: string,
   yAxis: string,
 ): string {
@@ -251,7 +246,7 @@ function getInterpretationPrompt(
 }
 
 function evaluateInterpretation(
-  chartType: 'scatter' | 'bar' | 'line' | 'histogram',
+  chartType: AppChartType,
   text: string,
 ): FeedbackResult {
   const normalized = text.trim().toLowerCase()
@@ -305,13 +300,13 @@ function evaluateInterpretation(
     { label: 'based on this we can', regex: /based\s+on\s+this\s+we\s+can/i },
     { label: 'therefore we should', regex: /therefore\s+we\s+should/i },
   ]
-  const chartNeedle: Record<'scatter' | 'bar' | 'line' | 'histogram', string[]> = {
+  const chartNeedle: Record<AppChartType, string[]> = {
     scatter: ['relationship', 'trend', 'outlier', 'cluster'],
     bar: ['group', 'highest', 'lowest', 'average'],
     line: ['change', 'pattern', 'fluctuate', 'stable'],
     histogram: ['distribution', 'range', 'spread', 'extreme'],
   }
-  const chartPhrases: Record<'scatter' | 'bar' | 'line' | 'histogram', Array<{ label: string; regex: RegExp }>> = {
+  const chartPhrases: Record<AppChartType, Array<{ label: string; regex: RegExp }>> = {
     scatter: [
       { label: 'upward trend', regex: /upward\s+trend/i },
       { label: 'downward trend', regex: /downward\s+trend/i },
@@ -382,7 +377,7 @@ function evaluateInterpretation(
     max: 8,
   }
 
-  const relevantByChart: Record<'scatter' | 'bar' | 'line' | 'histogram', Array<keyof typeof weighted>> = {
+  const relevantByChart: Record<AppChartType, Array<keyof typeof weighted>> = {
     scatter: ['trend', 'evidence', 'decision', 'chartSpecific'],
     line: ['trend', 'evidence', 'decision', 'chartSpecific'],
     bar: ['evidence', 'decision', 'chartSpecific'],
@@ -462,17 +457,17 @@ function App() {
   const [datasetSummary, setDatasetSummary] = useState<DatasetSummary | null>(null)
   const [datasetRows, setDatasetRows] = useState<DataRow[]>([])
   const [statusMessage, setStatusMessage] = useState('Generate your first dataset to begin.')
-  const [chartType, setChartType] = useState<'scatter' | 'bar' | 'line' | 'histogram'>('scatter')
+  const [chartType, setChartType] = useState<AppChartType>('scatter')
   const [xAxis, setXAxis] = useState('')
   const [yAxis, setYAxis] = useState('')
-  const [interpretations, setInterpretations] = useState<Record<'scatter' | 'bar' | 'line' | 'histogram', string>>({
+  const [interpretations, setInterpretations] = useState<Record<AppChartType, string>>({
     scatter: '',
     bar: '',
     line: '',
     histogram: '',
   })
   const [feedbackByChart, setFeedbackByChart] = useState<
-    Partial<Record<'scatter' | 'bar' | 'line' | 'histogram', FeedbackResult>>
+    Partial<Record<AppChartType, FeedbackResult>>
   >({})
   const [learningPage, setLearningPage] = useState<'data' | 'information' | 'context' | 'wisdom'>('data')
 
@@ -594,6 +589,14 @@ function App() {
   }, [datasetRows, chartYAxis, categoricalColumns])
 
   const histogramData = useMemo(() => histogram(datasetRows, chartXAxis), [datasetRows, chartXAxis])
+  const ChartRenderer = getChartRenderer(APP_CHART_RENDERERS, chartType)
+  const chartRendererProps: AppChartRendererProps = {
+    scatterLineData,
+    barChartData,
+    histogramData,
+    chartXAxis,
+    chartYAxis,
+  }
 
   const insightCards = useMemo(() => {
     if (!datasetSummary || datasetRows.length === 0) {
@@ -920,7 +923,12 @@ function App() {
             <div className="viz-controls">
               <label>
                 Chart Type
-                <select value={chartType} onChange={(event) => setChartType(event.target.value as typeof chartType)}>
+                <select
+                  value={chartType}
+                  onChange={(event) => {
+                    if (isRendererType(APP_CHART_RENDERERS, event.target.value)) setChartType(event.target.value)
+                  }}
+                >
                   <option value="scatter">Scatter Plot</option>
                   <option value="line">Line Plot</option>
                   <option value="bar">Bar Chart (Grouped Mean)</option>
@@ -957,41 +965,13 @@ function App() {
               </label>
             </div>
             <div className="chart-area">
-              <ResponsiveContainer width="100%" height={330}>
-                {chartType === 'scatter' ? (
-                  <ScatterChart>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="x" name={chartXAxis} />
-                    <YAxis dataKey="y" name={chartYAxis} />
-                    <Tooltip />
-                    <Scatter data={scatterLineData} fill="#0ea5e9" />
-                  </ScatterChart>
-                ) : chartType === 'line' ? (
-                  <LineChart data={scatterLineData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="x" />
-                    <YAxis />
-                    <Tooltip />
-                    <Line type="monotone" dataKey="y" stroke="#22c55e" strokeWidth={2} dot={false} />
-                  </LineChart>
-                ) : chartType === 'bar' ? (
-                  <BarChart data={barChartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#f59e0b" />
-                  </BarChart>
-                ) : (
-                  <BarChart data={histogramData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#8b5cf6" />
-                  </BarChart>
-                )}
-              </ResponsiveContainer>
+              {ChartRenderer ? (
+                <ResponsiveContainer width="100%" height={330}>
+                  {ChartRenderer(chartRendererProps)}
+                </ResponsiveContainer>
+              ) : (
+                <p role="status">Unsupported chart type: {String(chartType)}</p>
+              )}
             </div>
             <div className="interpretation-box">
               <h4>Student Interpretation</h4>
