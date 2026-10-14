@@ -1,5 +1,10 @@
 services:
+  services:
   - type: web
+    name: data-visualization-backend
+    runtime: python
+    plan: free
+  
     name: datascience-lab-api
     env: python
     rootDir: backend
